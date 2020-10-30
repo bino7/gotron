@@ -6,7 +6,7 @@ package gotron
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Equanox/gotron/internal/runner"
+	"github.com/bino7/gotron/internal/runner"
 	"net/http"
 	"sync"
 
@@ -52,6 +52,7 @@ type optionsQueueElement struct {
 // BrowserWindow Instance for a gotronbrowserwindow
 type BrowserWindow struct {
 	Configuration
+	Name                  string
 	UseZerolog            bool
 	Running               bool
 	handledMessages       map[string]func([]byte)         // Use sync map or mutexes
@@ -59,12 +60,13 @@ type BrowserWindow struct {
 	WindowOptions         WindowOptions
 	optionsQueue          chan optionsQueueElement
 	optionsReturnMap      sync.Map
+	DefaultHandler        func([]byte)
 }
 
 // New creates a new gotronbrowserwindow,
 // parameter uiFolder must point to a folder containing either an index.htm or an index.html file
 // if empty a default aplication is used
-func New(uiFolders ...string) (gbw *BrowserWindow, err error) {
+func New(name string, uiFolders ...string) (gbw *BrowserWindow, err error) {
 	err = nil
 
 	uiFolder := ""
@@ -78,6 +80,7 @@ func New(uiFolders ...string) (gbw *BrowserWindow, err error) {
 			AppDirectory: ".gotron/",
 			UIFolder:     uiFolder,
 		},
+		Name:                  name,
 		UseZerolog:            false,
 		Running:               false,
 		handledMessages:       make(map[string]func([]byte)),
@@ -251,7 +254,10 @@ func (gbw *BrowserWindow) onSocket(w http.ResponseWriter, r *http.Request) {
 		errz.Fatal(err, "Unmashal: ")
 		logger.Debug().Msgf("ElectronSocket: [received] %+v", event)
 
-		//Execute event function if exists
+		//Execute event function if exists'
+		if gbw.DefaultHandler != nil {
+			gbw.DefaultHandler(message)
+		}
 		if f, ok := gbw.handledMessages[event.Event]; ok {
 			f(message)
 		} else {

@@ -80,10 +80,12 @@ func (gbw *BrowserWindow) createStartParameters() (electronPath string, argument
 
 	exPath := filepath.Dir(ex)
 
+	var appName = gbw.Name
+
 	if runtime.GOOS == "darwin" {
-		electronPath, err = filepath.Abs(filepath.Join(exPath, "electronjs", "gotron-browser-window.app/Contents/MacOS/gotron-browser-window"))
+		electronPath, err = filepath.Abs(filepath.Join(exPath, "electronjs", appName+".app/Contents/MacOS/"+appName))
 	} else {
-		electronPath, err = filepath.Abs(filepath.Join(exPath, "electronjs", "gotron-browser-window"))
+		electronPath, err = filepath.Abs(filepath.Join(exPath, "electronjs", appName))
 	}
 	errz.Fatal(err)
 	appPath := ""

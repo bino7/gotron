@@ -1,4 +1,4 @@
-module github.com/Equanox/gotron
+module github.com/bino7/gotron
 
 require (
 	github.com/Benchkram/errz v0.0.0-20180825145403-619d291cb54f

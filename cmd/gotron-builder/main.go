@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Benchkram/errz"
-	"github.com/Equanox/gotron/cmd/gotron-builder/internal/application"
+	"github.com/bino7/gotron/cmd/gotron-builder/internal/application"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,6 +17,8 @@ var gotronBuilderVersion = "undefined"
 
 func init() {
 	// General
+	rootCmd.PersistentFlags().StringP("name", "n", "gotron-app",
+		"App name")
 	rootCmd.PersistentFlags().StringP("go", "g", ".",
 		"Go entrypoint, must point to a directory containing a main.go")
 	rootCmd.PersistentFlags().StringP("app", "a", ".gotron/assets/",
@@ -25,6 +27,10 @@ func init() {
 		"Application output directory. Build output will be put in dist/* inside this directory.")
 	rootCmd.PersistentFlags().BoolP("version", "v", false,
 		"Returns gotron-builder version")
+	rootCmd.PersistentFlags().Bool("polymer", false,
+		"run polymer build to the src")
+	rootCmd.PersistentFlags().Bool("no-prune", false,
+		"add --no-prune flag when running electron-package")
 
 	// Electron-Builder parameters
 
@@ -61,6 +67,7 @@ func Run(cmd *cobra.Command, args []string) {
 	}
 
 	if err := app.Run(); err != nil {
+		panic(err)
 		log.Fatal().Msg(err.Error())
 	}
 }
@@ -76,6 +83,7 @@ func parseFlags(cmd *cobra.Command) (app *application.App, err error) {
 	defer errz.Recover(&err)
 
 	//General
+	name := cmd.Flag("name").Value.String()
 	goDir := cmd.Flag("go").Value.String()
 	appDir := cmd.Flag("app").Value.String()
 	outputDir := cmd.Flag("out").Value.String()
@@ -88,6 +96,9 @@ func parseFlags(cmd *cobra.Command) (app *application.App, err error) {
 	errz.Fatal(err)
 	outputDir, err = filepath.Abs(outputDir)
 	errz.Fatal(err)
+
+	polymer, _ := strconv.ParseBool(cmd.Flag("polymer").Value.String())
+	noPrune, _ := strconv.ParseBool(cmd.Flag("no-prune").Value.String())
 
 	//Target Platform
 	m1, _ := strconv.ParseBool(cmd.Flag("mac").Value.String())
@@ -147,9 +158,12 @@ func parseFlags(cmd *cobra.Command) (app *application.App, err error) {
 		return
 	}
 
+	app.Name = name
 	app.GoEntryPoint = goDir
 	app.AppDir = appDir
 	app.OutputDir = outputDir
+	app.Polymer = polymer
+	app.NoPrune = noPrune
 
 	return
 }

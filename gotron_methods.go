@@ -12,8 +12,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
-	"github.com/Equanox/gotron/internal/file"
+	"github.com/bino7/gotron/internal/file"
 	"github.com/pkg/errors"
 
 	"github.com/otiai10/copy"
@@ -51,25 +52,65 @@ func (gbw *BrowserWindow) Start(forceInstall ...bool) (isdone chan bool, err err
 
 // CreatAppStructure -
 // Get electron and web files. Put them into gbw.AppFolder (default ".gotron")
-func (gbw *BrowserWindow) CreateAppStructure(forceInstall ...bool) (err error) {
+func (gbw *BrowserWindow) CreateAppStructure(polymer bool, forceInstall ...bool) (err error) {
 	var _forceInstall bool
 	for _, v := range forceInstall {
 		_forceInstall = v
 	}
 	defer errz.Recover(&err)
 
+	if polymer {
+		err = gbw.buildPolymerProject()
+		errz.Fatal(err)
+	}
+
 	err = os.MkdirAll(gbw.AppDirectory, 0777)
 	errz.Fatal(err)
 
-	// Copy Electron Files
-	err = gbw.copyElectronApplication(_forceInstall)
+	err = gbw.copyTemplate(_forceInstall)
 	errz.Fatal(err)
 
 	// Run npm install
 	err = gbw.runNPM(_forceInstall)
 	errz.Fatal(err)
 
+	// Copy Electron Files
+	err = gbw.copyElectronApplication(_forceInstall)
+	errz.Fatal(err)
+
 	return nil
+}
+
+func (gbw *BrowserWindow) buildPolymerProject() (err error) {
+	/*installPolymerCli := exec.Command("npm", "install","polymer-cli")
+	installPolymerCli.Stdout = os.Stdout
+	installPolymerCli.Stderr = os.Stderr
+	installPolymerCli.Dir = gbw.UIFolder
+	err = installPolymerCli.Start()
+	errz.Fatal(err)
+	err = installPolymerCli.Wait()
+	errz.Fatal(err)*/
+	polymerBuild := exec.Command("polymer",
+		"build",
+		"--name=es6-bundled", "--preset=es2016",
+		"--js-transform-modules-to-amd",
+		"--module-resolution=node",
+		"--js-minify",
+		"--css-minify",
+		"--html-minify",
+		"--bundle",
+		"--add-service-worker",
+		"--npm",
+	)
+	polymerBuild.Stdout = os.Stdout
+	polymerBuild.Stderr = os.Stderr
+	polymerBuild.Dir = gbw.UIFolder
+	err = polymerBuild.Start()
+	errz.Fatal(err)
+	err = polymerBuild.Wait()
+	errz.Fatal(err)
+	gbw.UIFolder = filepath.Join(gbw.UIFolder, "build", "es6-bundled")
+	return err
 }
 
 // runApplication starts websockets and runs the electron application
@@ -95,19 +136,7 @@ func (gbw *BrowserWindow) runApplication() (err error) {
 	return
 }
 
-// copyElectronApplication from library package to defined app directory.
-// copy app files (.js .css) to app directory
-//
-// forceInstall forces a reinstallation of electron
-// and resets AppDirectory/assets if no UIFolder was set.
-//
-// On the first run we copy a default application
-// into AppDirectory and install electronjs locally.
-// When a ui directory was set we use the contents of those
-// and copy it into AppDirectory/assets
-func (gbw *BrowserWindow) copyElectronApplication(forceInstall bool) (err error) {
-	defer errz.Recover(&err)
-
+func (gbw *BrowserWindow) copyTemplate(forceInstall bool) (err error) {
 	// Copy app Directory
 	mainJS := filepath.Join(gbw.AppDirectory, "main.js")
 	firstRun := !file.Exists(mainJS)
@@ -123,12 +152,27 @@ func (gbw *BrowserWindow) copyElectronApplication(forceInstall bool) (err error)
 		err = copy.Copy(templateDir, gbw.AppDirectory)
 		errz.Fatal(err)
 	}
-
 	err = os.Chmod(gbw.AppDirectory, gotronFileMode)
 	errz.Fatal(err)
-	assetsDir := filepath.Join(gbw.AppDirectory, "assets")
+	return
+}
+
+// copyElectronApplication from library package to defined app directory.
+// copy app files (.js .css) to app directory
+//
+// forceInstall forces a reinstallation of electron
+// and resets AppDirectory/assets if no UIFolder was set.
+//
+// On the first run we copy a default application
+// into AppDirectory and install electronjs locally.
+// When a ui directory was set we use the contents of those
+// and copy it into AppDirectory/assets
+func (gbw *BrowserWindow) copyElectronApplication(forceInstall bool) (err error) {
+	defer errz.Recover(&err)
+
+	/*assetsDir := filepath.Join(gbw.AppDirectory, "assets")
 	err = os.Chmod(assetsDir, gotronFileMode)
-	errz.Fatal(err)
+	errz.Fatal(err)*/
 
 	// If no UI folder is set use default ui files
 	if gbw.UIFolder == "" {
@@ -149,18 +193,61 @@ func (gbw *BrowserWindow) copyElectronApplication(forceInstall bool) (err error)
 	// avoids deleting asset dir by accident.
 	src, err := filepath.Abs(gbw.UIFolder)
 	errz.Fatal(err)
-	dst, err := filepath.Abs(filepath.Join(gbw.AppDirectory, "assets"))
+	dst, err := filepath.Abs(filepath.Join(gbw.AppDirectory))
 	errz.Fatal(err)
 
 	if src != dst {
-		err = os.RemoveAll(filepath.Join(gbw.AppDirectory, "assets"))
-		errz.Fatal(err)
+		/*err = os.RemoveAll(filepath.Join(gbw.AppDirectory, "assets"))
+		errz.Fatal(err)*/
 
-		err = copy.Copy(gbw.UIFolder, filepath.Join(gbw.AppDirectory, "assets"))
+		err = copy.Copy(src, dst)
 		errz.Fatal(err)
 	}
 
 	return nil
+}
+
+func compareVersion(v1, v2 string) string {
+	v1 = strings.TrimSpace(v1)
+	v2 = strings.TrimSpace(v2)
+	if v1 == "" && v2 != "" {
+		return v2
+	}
+	if v1 != "" && v2 == "" {
+		return v1
+	}
+	if v1 == "latest" || v2 == "latest" {
+		return "latest"
+	}
+	v1 = strings.TrimPrefix(v1, "^")
+	v2 = strings.TrimPrefix(v2, "^")
+	v1s := strings.Split(v1, ".")
+	v2s := strings.Split(v2, ".")
+	verNum := func(vs []string, i int) int {
+		if len(vs) >= i {
+			return 0
+		}
+		n, err := strconv.Atoi(vs[i])
+		errz.Fatal(err)
+		return n
+	}
+	for i := 0; i < len(v1) && i < len(v2); i++ {
+		if verNum(v1s, i) > verNum(v2s, i) {
+			return v1
+		} else if verNum(v1s, i) < verNum(v2s, i) {
+			return v2
+		}
+	}
+	return v1
+}
+
+type packageJSON struct {
+	Name            string            `json:"name"`
+	Version         string            `json:"version"`
+	Main            string            `json:"main"`
+	Scripts         map[string]string `json:"scripts"`
+	Dependencies    map[string]string `json:"dependencies"`
+	DevDependencies map[string]string `json:"devDependencies"`
 }
 
 //runNPM - run npm install if not done already or foced.

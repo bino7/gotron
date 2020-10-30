@@ -9,26 +9,29 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/Equanox/gotron/internal/file"
+	"github.com/bino7/gotron/internal/file"
 	"github.com/otiai10/copy"
 
 	"github.com/Benchkram/errz"
 	shutil "github.com/termie/go-shutil"
 
-	"github.com/Equanox/gotron"
+	"github.com/bino7/gotron"
 )
 
 // Globals constants
 const (
-	gotronBuilderDirectory = ".gotron-builder"
+	gotronBuilderDirectory = ".gotron" //".gotron-builder"
 )
 
 type App struct {
+	Name         string
 	GoEntryPoint string // Directory where go build is executed
 	AppDir       string // Application loaded by electronjs
 	Target       string // Target system to build for
 	OutputDir    string // Outputdirectory for build output
 	Arch         string // Architecture to build for
+	Polymer      bool
+	NoPrune      bool
 }
 
 type goBuildOptions struct {
@@ -40,18 +43,18 @@ type goBuildOptions struct {
 func (app *App) Run() (err error) {
 	defer errz.Recover(&err)
 
-	// Use gotron-browser-window to copy webapp
-	// to .gotron dir. Let it handle the necessary logic
-	// to validate webapp.
-	gbw, err := gotron.New(app.AppDir)
-	err = gbw.CreateAppStructure()
-	errz.Fatal(err)
-
 	err = app.makeTempDir()
 	errz.Fatal(err)
 
-	err = app.installDependencies()
+	// Use gotron-browser-window to copy webapp
+	// to .gotron dir. Let it handle the necessary logic
+	// to validate webapp.
+	gbw, err := gotron.New(app.Name, app.AppDir)
+	err = gbw.CreateAppStructure(app.Polymer)
 	errz.Fatal(err)
+
+	/*err = app.installDependencies()
+	errz.Fatal(err)*/
 
 	err = app.buildElectron()
 	errz.Fatal(err)
@@ -138,7 +141,7 @@ func runCmdEnv(runDir, command string, envVars []string, args ...string) (err er
 
 func (app *App) installDependencies() (err error) {
 
-	args := []string{"install", "electron-builder", "--save-dev"}
+	args := []string{"install", "electron-packager", "--save-dev"}
 
 	return runCmd(gotronBuilderDirectory, "npm", args...)
 }
@@ -154,23 +157,29 @@ func (app *App) buildElectron() (err error) {
 	}
 	// contains
 
-	projDir, err := filepath.Abs(".gotron/")
+	//projDir, err := filepath.Abs(".gotron/")
 
 	var target string
 	switch app.Target {
 	case "win":
-		target = "-w"
+		//target = "-w"
+		target = "--platform=win32"
 	case "linux":
-		target = "-l"
+		//target = "-l"
+		target = "--platform=darwin"
 	case "mac":
-		target = "-m"
+		//target = "-m"
+		target = "--platform=darwin"
 	default:
 	}
 
-	args := []string{target, "--" + app.Arch, "--dir", "--projectDir=" + projDir}
+	args := []string{".", app.Name, target, "--" + app.Arch, "--out=./dist", "--app-version=1.0.0", `--ignore=\"(dist|docs|.gitignore|LICENSE|README.md|webpack.config*)\"`}
+	if app.Polymer || app.NoPrune {
+		args = append(args, "--no-prune")
+	}
 
 	runDir := gotronBuilderDirectory
-	command := filepath.Join("node_modules/.bin/", "electron-builder")
+	command := filepath.Join("node_modules/.bin/", "electron-packager")
 
 	return runCmd(runDir, command, args...)
 }
@@ -216,19 +225,13 @@ func (app *App) buildGoCode() (err error) {
 	errz.Fatal(err)
 
 	from := filepath.Join(runDir, fName)
-	var ending string
-	if app.Target == "mac" {
-		ending = ""
-	} else {
-		ending = "-unpacked"
-	}
 	var distFolder string
-	if app.Arch == "x64" {
-		distFolder = app.Target + ending
+	if app.Target == "mac" || app.Target == "linux" {
+		distFolder = app.Name + "-darwin" + "-" + app.Arch
 	} else {
-		distFolder = app.Target + "-" + app.Arch + ending
+		distFolder = app.Name + "-win32" + "-" + app.Arch
 	}
-	to := filepath.Join(app.OutputDir, "dist", distFolder, fName)
+	to := filepath.Join(app.OutputDir, distFolder, fName)
 
 	// err = copy.Copy(from, to)
 	if file.Exists(to) {
@@ -248,21 +251,15 @@ func (app *App) buildGoCode() (err error) {
 func (app *App) syncDistDirs() (err error) {
 	defer errz.Recover(&err)
 
-	var ending string
-	if app.Target == "mac" {
-		ending = ""
-	} else {
-		ending = "-unpacked"
-	}
 	var distFolder string
-	if app.Arch == "x64" {
-		distFolder = app.Target + ending
+	if app.Target == "mac" || app.Target == "linux" {
+		distFolder = app.Name + "-darwin" + "-" + app.Arch
 	} else {
-		distFolder = app.Target + "-" + app.Arch + ending
+		distFolder = app.Name + "-win32" + "-" + app.Arch
 	}
 
 	src := filepath.Join(".gotron/dist", distFolder)
-	dst := filepath.Join(app.OutputDir, "dist", distFolder, "electronjs")
+	dst := filepath.Join(app.OutputDir, distFolder, "electronjs")
 
 	err = copy.Copy(src, dst)
 	err = os.RemoveAll(dst)

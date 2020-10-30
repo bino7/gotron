@@ -6,7 +6,7 @@ import (
 
 func TestCopyElectronApplication(t *testing.T) {
 
-	window, err := New()
+	window, err := New("test")
 	if err != nil {
 		t.Fatal(err)
 	}
