@@ -115,7 +115,7 @@ func (gbw *BrowserWindow) sendAndReceiveSocketEvent(event SocketEvent) (SocketEv
 	select {
 	case res = <-c:
 		return res, nil
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		return res, errors.New("Websocket: Wait timeout exceeded")
 	}
 }

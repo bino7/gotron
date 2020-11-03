@@ -173,4 +173,13 @@ func main() {
 		log.Error().Msg(err.Error())
 		os.Exit(1)
 	}
+	/*app := application.New()
+	app.Name="dashboard"
+	app.GoEntryPoint="/Users/bino/go/src/github.com/bino7/dashboard"
+	app.AppDir="/Users/bino/go/src/github.com/bino7/dashboard/ui"
+	app.OutputDir="/Users/bino/go/src/github.com/bino7/dashboard/dist"
+	//app.Polymer=true
+	app.SetTarget("mac")
+	app.Arch = "x64"
+	app.Run()*/
 }

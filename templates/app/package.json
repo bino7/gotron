@@ -11,11 +11,12 @@
     "packageWin2": "electron-packager . 'wins' --platform=win32 --arch=x64 --out=./dist --asar --app-version=1.0.0"
   },
   "dependencies": {
+    "@webcomponents/webcomponentsjs": "^2.0.0",
     "electron-connect": "^0.6.3",
     "websocket": "latest"
   },
   "devDependencies": {
-    "electron": "^2.0.15",
+    "electron": "^10.1.5",
     "electron-packager": "^13.1.0"
   }
 }

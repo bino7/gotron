@@ -10,7 +10,7 @@ const browserWindowEvents = "/browser/window/events"
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win
-
+let apps = new(Map)
 function close() {
   if (socket != null) {
     socket.sendUTF(JSON.stringify({ event: "shutdown", data: true }));
@@ -26,13 +26,11 @@ function createWindow() {
 
   // Replace Preload Script
   opts.webPreferences.preload = path.resolve(`${__dirname}/preload.js`);
-
   // Create the browser window.
   win = new BrowserWindow(opts)
 
   // and load the index.html of the app.
-  win.loadURL(`file://${__dirname}/assets/index.html`)
-
+  win.loadURL(`file://${__dirname}/index.html`)
   // Open the DevTools.
   // win.webContents.openDevTools()
 
@@ -108,7 +106,8 @@ client.on('connect', function (connection) {
     // }
     let result = handleEvent(event);
     if (result !== undefined) {
-      socket.sendUTF(JSON.stringify(result));
+      event.Data = result
+      socket.sendUTF(JSON.stringify(event));
     } else {
       event.Data = "ok"
       socket.sendUTF(JSON.stringify(event));
@@ -118,9 +117,6 @@ client.on('connect', function (connection) {
 
 // Port from process arguments
 let port = process.argv[2]
-
-console.log("Main.js")
-console.log(port)
 
 client.connect('ws://127.0.0.1:' + port + browserWindowEvents, []);
 
@@ -341,6 +337,20 @@ let eventMapArray = [
   ['setVibrancy', (event) => win.setVibrancy(event.Data.Type)],
   ['setTouchBar', (event) => win.setTouchBar(event.Data.TouchBar)],
   ['setBrowserView', (event) => win.setBrowserView(event.Data.BrowserView)],
+  ['setIgnoreMouseEvents', (event) => win.setIgnoreMouseEvents(event.Data)],
+  //
+  ['openApp', (event) => {
+      let appName = event.Name
+      if (apps[appName]!=null){
+        return {"Event":"openAppFailed","AppName":appName,"Error":"app opened"}
+      }
+      let entryPoint = event.EntryPoint
+      let app = new BrowserWindow({parent:win,frame:false,movable:false})
+      app.loadURL(entryPoint)
+      app.show()
+      apps[appName]=app
+      return {"Event":"AppOpened","AppName":appName}
+  }],
   //
   ['getBrowserView', () => win.getBrowserView()],
   ['other', () => console.log("other event")],

@@ -9,10 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/bino7/gotron/internal/file"
-	"github.com/otiai10/copy"
-
 	"github.com/Benchkram/errz"
+	"github.com/bino7/gotron/internal/file"
 	shutil "github.com/termie/go-shutil"
 
 	"github.com/bino7/gotron"
@@ -43,14 +41,15 @@ type goBuildOptions struct {
 func (app *App) Run() (err error) {
 	defer errz.Recover(&err)
 
-	err = app.makeTempDir()
-	errz.Fatal(err)
+	/*err = app.makeTempDir()
+	errz.Fatal(err)*/
 
 	// Use gotron-browser-window to copy webapp
 	// to .gotron dir. Let it handle the necessary logic
 	// to validate webapp.
 	gbw, err := gotron.New(app.Name, app.AppDir)
-	err = gbw.CreateAppStructure(app.Polymer)
+	//gbw.Configuration.Polymer = true
+	err = gbw.CreateAppStructure()
 	errz.Fatal(err)
 
 	/*err = app.installDependencies()
@@ -173,7 +172,7 @@ func (app *App) buildElectron() (err error) {
 	default:
 	}
 
-	args := []string{".", app.Name, target, "--" + app.Arch, "--out=./dist", "--app-version=1.0.0", `--ignore=\"(dist|docs|.gitignore|LICENSE|README.md|webpack.config*)\"`}
+	args := []string{".", app.Name, target, "--" + app.Arch, "--asar", "--out=./dist", "--app-version=1.0.0", `--ignore=\"(dist|docs|.gitignore|LICENSE|README.md|webpack.config*)\"`}
 	if app.Polymer || app.NoPrune {
 		args = append(args, "--no-prune")
 	}
@@ -261,7 +260,7 @@ func (app *App) syncDistDirs() (err error) {
 	src := filepath.Join(".gotron/dist", distFolder)
 	dst := filepath.Join(app.OutputDir, distFolder, "electronjs")
 
-	err = copy.Copy(src, dst)
+	//err = copy.Copy(src, dst)
 	err = os.RemoveAll(dst)
 	errz.Fatal(err)
 
@@ -270,7 +269,6 @@ func (app *App) syncDistDirs() (err error) {
 		CopyFunction:           shutil.Copy,
 		IgnoreDanglingSymlinks: false}
 	err = shutil.CopyTree(src, dst, options)
-	errz.Fatal(err)
 	errz.Fatal(err)
 
 	err = os.RemoveAll(filepath.Dir(src))

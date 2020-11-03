@@ -3,6 +3,7 @@
 package gotron
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -16,10 +17,10 @@ import (
 )
 
 // Start starts an Instance of gotronbrowserwindow
-func (gbw *BrowserWindow) Start(forceInstall ...bool) (isdone chan bool, err error) {
+func (gbw *BrowserWindow) Start(ctx context.Context, forceInstall ...bool) (isdone <-chan struct{}, err error) {
 	defer errz.Recover(&err)
 
-	isdone = done
+	isdone = ctx.Done()
 
 	// run sockets and electron
 	err = gbw.runApplication()

@@ -3,6 +3,7 @@
 package gotron
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -28,16 +29,16 @@ const (
 )
 
 // Start starts an Instance of gotronbrowserwindow
-func (gbw *BrowserWindow) Start(forceInstall ...bool) (isdone chan bool, err error) {
+func (gbw *BrowserWindow) Start(ctx context.Context, forceInstall ...bool) (isdone <-chan struct{}, err error) {
 	defer errz.Recover(&err)
+
+	isdone = ctx.Done()
 
 	var _forceInstall bool
 	for _, v := range forceInstall {
 		_forceInstall = v
 		break
 	}
-
-	isdone = done
 
 	// build up structure
 	err = gbw.CreateAppStructure(_forceInstall)
@@ -52,23 +53,23 @@ func (gbw *BrowserWindow) Start(forceInstall ...bool) (isdone chan bool, err err
 
 // CreatAppStructure -
 // Get electron and web files. Put them into gbw.AppFolder (default ".gotron")
-func (gbw *BrowserWindow) CreateAppStructure(polymer bool, forceInstall ...bool) (err error) {
+func (gbw *BrowserWindow) CreateAppStructure(forceInstall ...bool) (err error) {
 	var _forceInstall bool
 	for _, v := range forceInstall {
 		_forceInstall = v
 	}
 	defer errz.Recover(&err)
 
-	if polymer {
-		err = gbw.buildPolymerProject()
-		errz.Fatal(err)
-	}
-
 	err = os.MkdirAll(gbw.AppDirectory, 0777)
 	errz.Fatal(err)
 
 	err = gbw.copyTemplate(_forceInstall)
 	errz.Fatal(err)
+
+	if gbw.Configuration.Polymer {
+		err = gbw.buildPolymerProject()
+		errz.Fatal(err)
+	}
 
 	// Run npm install
 	err = gbw.runNPM(_forceInstall)
@@ -92,15 +93,16 @@ func (gbw *BrowserWindow) buildPolymerProject() (err error) {
 	errz.Fatal(err)*/
 	polymerBuild := exec.Command("polymer",
 		"build",
-		"--name=es6-bundled", "--preset=es2016",
-		"--js-transform-modules-to-amd",
-		"--module-resolution=node",
-		"--js-minify",
+		//"--sources","*.html","src/**/*",
+		//"--name=es6-bundled", "--preset=es2016",
+		//"--js-transform-modules-to-amd",
+		//"--module-resolution=node",
+		/*"--js-minify",
 		"--css-minify",
-		"--html-minify",
-		"--bundle",
+		"--html-minify",*/
+		/*"--bundle",
 		"--add-service-worker",
-		"--npm",
+		"--npm",*/
 	)
 	polymerBuild.Stdout = os.Stdout
 	polymerBuild.Stderr = os.Stderr
@@ -124,7 +126,6 @@ func (gbw *BrowserWindow) runApplication() (err error) {
 
 	//run electron
 	electron := exec.Command(electronPath, args...)
-
 	electron.Stdout = os.Stdout
 	electron.Stderr = os.Stderr
 
@@ -150,6 +151,8 @@ func (gbw *BrowserWindow) copyTemplate(forceInstall bool) (err error) {
 	if firstRun || forceInstall {
 		templateDir := filepath.Join(gbwDirectory, templateApplicationDir)
 		err = copy.Copy(templateDir, gbw.AppDirectory)
+		errz.Fatal(err)
+		err = os.RemoveAll(filepath.Join(gbw.AppDirectory, "assets"))
 		errz.Fatal(err)
 	}
 	err = os.Chmod(gbw.AppDirectory, gotronFileMode)
@@ -193,15 +196,26 @@ func (gbw *BrowserWindow) copyElectronApplication(forceInstall bool) (err error)
 	// avoids deleting asset dir by accident.
 	src, err := filepath.Abs(gbw.UIFolder)
 	errz.Fatal(err)
-	dst, err := filepath.Abs(filepath.Join(gbw.AppDirectory))
+	dst, err := filepath.Abs(gbw.AppDirectory)
 	errz.Fatal(err)
 
 	if src != dst {
 		/*err = os.RemoveAll(filepath.Join(gbw.AppDirectory, "assets"))
 		errz.Fatal(err)*/
 
-		err = copy.Copy(src, dst)
+		err = copy.Copy(src, dst, copy.Options{
+			OnSymlink: func(src string) copy.SymlinkAction {
+				return copy.Skip
+			},
+		})
 		errz.Fatal(err)
+
+		/*options := &shutil.CopyTreeOptions{Symlinks: true,
+			Ignore:                 nil,
+			CopyFunction:           shutil.Copy,
+			IgnoreDanglingSymlinks: false}
+		err = shutil.CopyTree(src, dst, options)
+		errz.Fatal(err)*/
 	}
 
 	return nil
@@ -303,7 +317,7 @@ func (gbw *BrowserWindow) createStartParameters() (electronPath string, argument
 
 	electronPath, err = filepath.Abs(filepath.Join(gbw.AppDirectory + "/node_modules/.bin/electron"))
 	errz.Fatal(err)
-	appPath, err := filepath.Abs(gbw.AppDirectory + "main.js")
+	appPath, err := filepath.Abs(gbw.AppDirectory) //+ "main.js")
 	errz.Fatal(err)
 	logger.Debug().Msgf(appPath)
 

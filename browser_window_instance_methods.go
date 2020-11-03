@@ -245,8 +245,9 @@ func (gbw *BrowserWindow) SetFullScreen(flag bool) {
 func (gbw *BrowserWindow) IsFullScreen() bool {
 	res, _ := gbw.sendAndReceiveSocketEvent(SocketEvent{Event: "isFullScreen"})
 	logger.Debug().Msgf("%+v\n", res)
-	panic("Not implemented")
-	return false
+
+	//panic("Not implemented")
+	return res.Data.(bool)
 }
 
 //SetSimpleFullScreen - Enters or leaves simple fullscreen mode.
@@ -300,7 +301,7 @@ func (gbw *BrowserWindow) SetAspectRatio(aspectRatio float64, extraSize string) 
 func (gbw *BrowserWindow) SetBackgroundColor(backgroundColor string) {
 	res, _ := gbw.sendAndReceiveSocketEvent(SocketEvent{Event: "setBackgroundColor", Data: backgroundColorStruct{BackgroundColor: backgroundColor}})
 	logger.Debug().Msgf("%+v\n", res)
-	panic("Not implemented")
+	//panic("Not implemented")
 }
 
 //PreviewFile :
@@ -1004,7 +1005,8 @@ func (gbw *BrowserWindow) IsVisibleOnAllWorkspaces() bool {
 //
 // All mouse events happened in this window will be passed to the window below this window, but if this window has focus, it will still receive keyboard events.
 func (gbw *BrowserWindow) SetIgnoreMouseEvents(ignore bool, options ...interface{}) {
-	panic("Not implemented")
+	res, _ := gbw.sendAndReceiveSocketEvent(SocketEvent{Event: "setIgnoreMouseEvents", Data: ignore})
+	logger.Debug().Msgf("%+v\n", res)
 }
 
 //SetContentProtection - Prevents the window contents from being captured by other apps.

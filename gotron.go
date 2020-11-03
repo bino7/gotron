@@ -39,6 +39,7 @@ type Configuration struct {
 	UIFolder     string
 	AppDirectory string // Directory to search for a electron application
 	Port         int
+	Polymer      bool
 }
 
 // optionsQueueElement
@@ -79,6 +80,7 @@ func New(name string, uiFolders ...string) (gbw *BrowserWindow, err error) {
 		Configuration: Configuration{
 			AppDirectory: ".gotron/",
 			UIFolder:     uiFolder,
+			Polymer:      true,
 		},
 		Name:                  name,
 		UseZerolog:            false,
